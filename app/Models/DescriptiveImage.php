@@ -9,7 +9,7 @@ class DescriptiveImage extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    protected $fillable = ['product_id', 'descriptive_images'];
 
     public function product()
     {

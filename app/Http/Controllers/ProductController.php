@@ -6,8 +6,8 @@ use App\Http\Requests\StoreProductRequest;
 use App\Models\Product;
 use App\Models\Attribute;
 use App\Models\ProductAttribute;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use App\Models\ProductImage;
+use App\Models\DescriptiveImage;
 use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
@@ -35,32 +35,41 @@ class ProductController extends Controller
             }
 
             // Step 3: Handle product images
-            $productImages = [];
-            foreach ($request->file('product_images') as $image) {
-                $path = $image->store('product_images', 'public'); // Store in the public disk
-                $productImages[] = $path;
+            if ($request->hasFile('product_images')) {
+                foreach ($request->file('product_images') as $image) {
+                    $path = $image->store('product_images', 'public');
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'images' => $path
+                    ]);
+                }
             }
-            $product->product_images = json_encode($productImages); // Save paths as JSON in the database
 
             // Step 4: Handle descriptive images
-            $descriptionImages = [];
-            if ($request->hasFile('description_images')) {
-                foreach ($request->file('description_images') as $image) {
-                    $path = $image->store('description_images', 'public'); // Store in the public disk
-                    $descriptionImages[] = $path;
+            if ($request->hasFile('descriptive_images')) {
+                foreach ($request->file('descriptive_images') as $image) {
+                    $path = $image->store('descriptive_images', 'public');
+                    DescriptiveImage::create([
+                        'product_id' => $product->id,
+                        'descriptive_images' => $path
+                    ]);
                 }
-                $product->description_images = json_encode($descriptionImages); // Save paths as JSON in the database
+            } else {
+                // Debugging: Add this line to check if descriptive_images are detected
+                dd("No descriptive images detected");
             }
 
-            $product->save();
+            // Step 5: Fetch the newly created product with its attributes and images
+            $product = Product::with(['attributes.attribute', 'productImages', 'descriptiveImages'])->find($product->id);
 
-            // Step 5: Fetch the newly created product with its attributes
-            $product = Product::with(['attributes.attribute'])->find($product->id);
+            // Debugging: Log or print the product and its relationships
+            Log::info('Product fetched: ', $product->toArray());
+
             $formattedProduct = $this->formatProduct($product);
 
             return response()->json($formattedProduct, 201);
         } catch (\Exception $e) {
-            Log::error('Error creating or finding attribute: ' . $e->getMessage());
+            Log::error('Error creating product: ' . $e->getMessage());
             return response()->json(['error' => 'Something went wrong'], 500);
         }
     }
@@ -84,17 +93,26 @@ class ProductController extends Controller
             $attributes[$attributeName][] = $attributeData;
         }
 
+        $productImages = $product->productImages->map(function ($image) {
+            return asset('storage/' . $image->image); // Include the full path
+        });
+
+        $descriptiveImages = $product->descriptiveImages->map(function ($image) {
+            return asset('storage/' . $image->image); // Include the full path
+        });
+
         return [
             'id' => $product->id,
             'name' => $product->name,
             'description' => $product->description,
             'attributes' => $attributes,
-            'product_images' => json_decode($product->product_images),
-            'description_images' => json_decode($product->description_images),
-            'status' => $product->status
+            'status' => $product->status,
+            'product_images' => $productImages,
+            'descriptive_images' => $descriptiveImages,
         ];
     }
 }
+
 
 
 

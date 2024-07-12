@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    use HasFactory;
+    protected $fillable = [
+        'name',
+        'description',
+        'status'
+    ];
 
-    protected $guarded = [];
-
-    public function attributes() 
+    public function attributes()
     {
         return $this->hasMany(ProductAttribute::class);
     }
@@ -26,4 +27,3 @@ class Product extends Model
         return $this->hasMany(DescriptiveImage::class);
     }
 }
-
