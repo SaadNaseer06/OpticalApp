@@ -16,7 +16,3 @@ Route::post('/forgotpassword', [UserController::class, 'forgotPassword']);
 Route::post('/resetpassword', [UserController::class, 'resetPassword']);
 
 Route::middleware('auth:api')->post('product', [ProductController::class, 'store']);
-
-// Products Route
-Route::get('products', [ProductController::class, 'index']);
-Route::get('products/{id}', [ProductController::class, 'show']);

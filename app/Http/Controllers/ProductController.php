@@ -8,6 +8,8 @@ use App\Models\Attribute;
 use App\Models\ProductAttribute;
 use App\Models\ProductImage;
 use App\Models\DescriptiveImage;
+use App\Models\ProductCategory;
+use App\Models\CategoryValue;
 use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
@@ -15,15 +17,22 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request)
     {
         try {
+            // Log request data for debugging
+            Log::info('Request data:', $request->all());
+
             // Step 1: Create the product with a static status of 1
+            Log::info('Creating product');
             $product = Product::create(array_merge(
                 $request->only(['name', 'description']),
                 ['status' => 1]  // Set status to 1
             ));
+            Log::info('Product created:', $product->toArray());
 
             // Step 2: Attach attributes
+            Log::info('Attaching attributes');
             foreach ($request->input('attributes') as $attributeData) {
                 $attribute = Attribute::firstOrCreate(['name' => $attributeData['name']]);
+                Log::info('Attribute created or found:', $attribute->toArray());
 
                 ProductAttribute::create([
                     'product_id' => $product->id,
@@ -32,8 +41,10 @@ class ProductController extends Controller
                     'price' => $attributeData['price'],
                     'quantity' => $attributeData['quantity']
                 ]);
+                Log::info('Product attribute attached');
             }
 
+            // Step 3: Handle product images
             // Step 3: Handle product images
             if ($request->hasFile('product_images')) {
                 foreach ($request->file('product_images') as $image) {
@@ -45,6 +56,7 @@ class ProductController extends Controller
                 }
             }
 
+            // Step 4: Handle descriptive images
             // Step 4: Handle descriptive images
             if ($request->hasFile('descriptive_images')) {
                 foreach ($request->file('descriptive_images') as $image) {
@@ -59,7 +71,26 @@ class ProductController extends Controller
                 dd("No descriptive images detected");
             }
 
-            // Step 5: Fetch the newly created product with its attributes and images
+            // Step 5: Save category and sub_category
+            Log::info('Saving category and sub_category');
+            $category = ProductCategory::create([
+                'product_id' => $product->id,
+                'category' => $request->input('category'),
+                'status' => 1
+            ]);
+            Log::info('Category saved:', $category->toArray());
+
+            CategoryValue::create([
+                'product_id' => $product->id,
+                'product_category_id' => $category->id,
+                'sub_category' => $request->input('sub_category'),
+            ]);
+            Log::info('Sub-category saved');
+
+            // Debugging point
+
+            // Step 6: Fetch the newly created product with its attributes and images
+            Log::info('Fetching the created product with relationships');
             $product = Product::with(['attributes.attribute', 'productImages', 'descriptiveImages'])->find($product->id);
 
             // Debugging: Log or print the product and its relationships
@@ -69,7 +100,7 @@ class ProductController extends Controller
 
             return response()->json($formattedProduct, 201);
         } catch (\Exception $e) {
-            Log::error('Error creating product: ' . $e->getMessage());
+            Log::error('Error creating product: ' . $e->getMessage(), ['exception' => $e]);
             return response()->json(['error' => 'Something went wrong'], 500);
         }
     }
@@ -94,11 +125,11 @@ class ProductController extends Controller
         }
 
         $productImages = $product->productImages->map(function ($image) {
-            return asset('storage/' . $image->image); // Include the full path
+            return url('storage/' . $image->images); // Generate full URL for product image
         });
 
         $descriptiveImages = $product->descriptiveImages->map(function ($image) {
-            return asset('storage/' . $image->image); // Include the full path
+            return url('storage/' . $image->descriptive_images); // Generate full URL for descriptive image
         });
 
         return [
@@ -109,125 +140,8 @@ class ProductController extends Controller
             'status' => $product->status,
             'product_images' => $productImages,
             'descriptive_images' => $descriptiveImages,
+            'category' => $product->getCategory->category,
+            'sub_category' => $product->categoryValue->sub_category,
         ];
     }
 }
-
-
-
-
-
-// namespace App\Http\Controllers;
-
-// use App\Http\Requests\StoreProductRequest;
-// use App\Models\Product;
-// use App\Models\Attribute;
-// use App\Models\ProductAttribute;
-// use Illuminate\Http\Request;
-// use Illuminate\Http\JsonResponse;
-
-
-// class ProductController extends Controller
-// {
-//     // Fetch all products with their attributes
-//     public function index()
-//     {
-//         $products = Product::with(['attributes.attribute'])->get()->map(function ($product) {
-//             return $this->formatProduct($product);
-//         });
-
-//         return response()->json($products);
-//     }
-
-//     // Fetch a single product with its attributes
-//     public function show($id)
-//     {
-//         $product = Product::with(['attributes.attribute'])->find($id);
-
-//         if (!$product) {
-//             return response()->json(['message' => 'Product not found'], 404);
-//         }
-
-//         $formattedProduct = $this->formatProduct($product);
-
-//         return response()->json($formattedProduct);
-//     }
-
-//     // Store a new product with its attributes
-//     public function store(StoreProductRequest $request)
-//     {
-//         try {
-//             // Step 1: Create the product with a static status of 1
-//             $product = Product::create(array_merge(
-//                 $request->only(['name', 'description']),
-//                 ['status' => 1] 
-//             ));
-
-//             dd($request->input('attributes'));
-
-//             // Step 2: Attach attributes
-//             foreach ($request->input('attributes') as $attributeData) {
-//                 $attribute = Attribute::firstOrCreate(['name' => $attributeData['name']]);
-
-//                 ProductAttribute::create([
-//                     'product_id' => $product->id,
-//                     'attribute_id' => $attribute->id,
-//                     'value' => $attributeData['value'],
-//                     'price' => $attributeData['price'],
-//                     'quantity' => $attributeData['quantity']
-//                 ]);
-//             }
-
-//             // Step 3: Fetch the newly created product with its attributes
-//             $product = Product::with(['attributes.attribute'])->find($product->id);
-//             $formattedProduct = $this->formatProduct($product);
-
-//             return response()->json([
-//                 'status' => 1,
-//                 'message' => 'Product Created Successfully',
-//                 'data' => $formattedProduct
-//             ], 201);
-//         } catch (ModelNotFoundException $e) {
-//             // Handle model not found exception
-//             return response()->json([
-//                 'status' => 0,
-//                 'error' => 'Resource not found'
-//             ], 404);
-//         } catch (\Exception $e) {
-//             // Handle other unexpected exceptions
-//             return response()->json([
-//                 'status' => 0,
-//                 'error' => 'Something went wrong'
-//             ], 500);
-//         }
-//     }
-
-//     // Helper function to format product data
-//     private function formatProduct($product)
-//     {
-//         $attributes = [];
-
-//         foreach ($product->attributes as $attribute) {
-//             $attributeName = strtolower($attribute->attribute->name);
-//             $attributeData = [
-//                 'value' => $attribute->value,
-//                 'price' => $attribute->price,
-//                 'quantity' => $attribute->quantity
-//             ];
-
-//             if (!isset($attributes[$attributeName])) {
-//                 $attributes[$attributeName] = [];
-//             }
-
-//             $attributes[$attributeName][] = $attributeData;
-//         }
-
-//         return [
-//             'id' => $product->id,
-//             'name' => $product->name,
-//             'description' => $product->description,
-//             'attributes' => $attributes,
-//             'status' => $product->status
-//         ];
-//     }
-// }

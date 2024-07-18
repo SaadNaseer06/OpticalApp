@@ -14,17 +14,17 @@ class StoreProductRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' => 'required',
-            'description' => 'nullable',
-            'attributes' => 'required',  // Ensure attributes is an array
-            'attributes.*.name' => 'required',  // Check each attribute name exists in attributes table
-            'attributes.*.value' => 'required',  // Value must be a string
-            'attributes.*.price' => 'required',  // Price must be numeric
-            'attributes.*.quantity' => 'required',  // Quantity must be an integer
-            'product_images' => 'required|array',
-            'product_images.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',  // Adjust max size as needed
-            'description_images' => 'nullable|array',
-            'description_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',  // Adjust max size as needed
+            // 'name' => 'required|string|max:255',
+            // 'description' => 'nullable|string',
+            // 'attributes' => 'required|array',
+            // 'attributes.*.name' => 'required|string|exists:attributes,name',
+            // 'attributes.*.value' => 'required|string',
+            // 'attributes.*.price' => 'required|numeric',
+            // 'attributes.*.quantity' => 'required|integer',
+            // 'category' => 'required|string|max:255',
+            // 'sub_category' => 'nullable|string|max:255',
+            // 'product_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            // 'descriptive_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ];
     }
 }
