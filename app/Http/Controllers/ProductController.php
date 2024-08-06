@@ -14,10 +14,6 @@ use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
-    public function log()
-    {
-        Log::error('something went wrong');
-    }
     public function store(StoreProductRequest $request)
     {
         try {
@@ -91,13 +87,10 @@ class ProductController extends Controller
     public function index()
     {
         try {
-            // Fetch all products with relationships
             $products = Product::with(['attributes.attribute', 'productImages', 'descriptiveImages', 'getCategory', 'categoryValue'])->get();
 
-            // Format each product
             $formattedProducts = $products->map(function ($product) {
                 try {
-                    // Extract attributes
                     $attributes = $product->attributes->groupBy(function ($attribute) {
                         return strtolower($attribute->attribute->name);
                     })->map(function ($group) {
@@ -110,17 +103,14 @@ class ProductController extends Controller
                         });
                     });
 
-                    // Extract product images
                     $productImages = $product->productImages->map(function ($image) {
                         return url('storage/' . $image->images);
                     });
 
-                    // Extract descriptive images
                     $descriptiveImages = $product->descriptiveImages->map(function ($image) {
                         return url('storage/' . $image->descriptive_images);
                     });
 
-                    // Extract category and sub-category with try-catch
                     $category = null;
                     $subCategory = null;
 
@@ -149,11 +139,10 @@ class ProductController extends Controller
                     ];
                 } catch (\Exception $e) {
                     Log::error('Error formatting product ID ' . $product->id . ': ' . $e->getMessage(), ['exception' => $e]);
-                    return null; // Or you could choose to return a default value or handle this case differently
+                    return null; 
                 }
-            })->filter(); // Remove any null entries from the collection
+            })->filter(); 
 
-            // Return the formatted products
             return response()->json(['status' => 1, 'data' => $formattedProducts], 200);
         } catch (\Exception $e) {
             Log::error('Error fetching products: ' . $e->getMessage(), ['exception' => $e]);
