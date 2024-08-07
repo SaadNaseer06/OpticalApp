@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AddressDetailController;
 use App\Http\Controllers\BookmarkController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProductController;
+use App\Models\AddressDetail;
 use App\Models\Bookmark;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -31,3 +33,6 @@ Route::middleware('auth:api')->post('cart-delete', [CartController::class, 'dest
 Route::middleware('auth:api')->post('cart-product', [CartController::class, 'addProducts']);
 Route::middleware('auth:api')->post('checkout', [CartController::class, 'checkout']);
 Route::middleware('auth:api')->get('order', [OrderController::class, 'getOrders']);
+Route::middleware('auth:api')->post('address', [AddressDetailController::class, 'store']);
+Route::middleware('auth:api')->get('get-address', [AddressDetailController::class, 'getDetails']);
+Route::middleware('auth:api')->post('delete-address', [AddressDetailController::class, 'deleteAddress']);

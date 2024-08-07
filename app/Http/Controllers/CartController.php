@@ -21,6 +21,9 @@ class CartController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
+            'user_id' => 'required|exists:users,id',
+            'quantity' => 'required|integer|min:1|max:10',
+            'attributes' => 'required|string'
         ]);
 
         if ($validator->fails()) {
@@ -30,17 +33,20 @@ class CartController extends Controller
         }
 
         $productID = $request->input('product_id');
-        $userID = null;
+        $userID = $request->input('user_id');
+        $quantity = $request->input('quantity');
+        $attributes = $request->input('attributes'); 
 
-        if (Auth::guard('api')->check()) {
-            $userID = auth('api')->user()->id;
+        // Validate JSON attributes
+        $decodedAttributes = json_decode($attributes, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return response()->json([
+                'errors' => ['attributes' => 'The attributes field must be a valid JSON string.'],
+            ], 400);
         }
-
-        $key = Str::random(40);
 
         try {
             $cart = Cart::create([
-                'key' => $key,
                 'user_id' => $userID,
             ]);
         } catch (\Exception $e) {
@@ -58,17 +64,29 @@ class CartController extends Controller
             ], 404);
         }
 
-        CartItem::create(['cart_id' => $cart->id, 'product_id' => $productID]);
+        CartItem::create([
+            'cart_id' => $cart->id,
+            'product_id' => $productID,
+            'quantity' => $quantity,
+            'attribute' => $attributes
+        ]);
 
         $cartItems = CartItem::where('cart_id', $cart->id)->with('product')->get();
+
+        $cartItems->each(function ($item) {
+            $item->attributes = json_decode($item->attribute);
+            unset($item->attribute); 
+        });
 
         return response()->json([
             'status' => 1,
             'message' => 'The Cart was updated with the given product information successfully',
-            'cart_key' => $cart->key,
             'cart_items' => $cartItems,
         ], 200);
     }
+
+
+
 
     public function show(Request $request)
     {
@@ -141,12 +159,12 @@ class CartController extends Controller
     public function checkout(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|numeric|min:1|max:10',
-            'totalPrice' => 'required|numeric',
-            'value' => 'required|string',
+            'cart_id' => 'required|exists:carts,id',
+            'user_id' => 'required|exists:users,id',
             'name' => 'required|string',
-            'address' => 'required|string',
+            'email' => 'required',
+            'billing_address' => 'required|string',
+            'shipping_address' => 'required|string',
             'phone' => 'required|numeric'
         ]);
 
@@ -156,35 +174,25 @@ class CartController extends Controller
             ], 400);
         }
 
-        $productID = $request->input('product_id');
-        $quantity = $request->input('quantity');
-        $totalPrice = $request->input('totalPrice');
-        $value = $request->input('value');
+        $cart_id = $request->input('cart_id');
+        $user_id = $request->input('user_id');
         $name = $request->input('name');
-        $address = $request->input('address');
+        $email = $request->input('email');
+        $billingAddress = $request->input('billing_address');
+        $shippingAddress = $request->input('shipping_address');
         $phone = $request->input('phone');
-        $userID = null;
-
-        if (Auth::guard('api')->check()) {
-            $userID = auth('api')->user()->id;
-        } else {
-            return response()->json([
-                'status' => 0,
-                'message' => 'User is not authenticated.',
-            ], 401);
-        }
 
         try {
             $order = Order::create([
-                'product_id' => $productID,
-                'user_id' => $userID,
-                'quantity' => $quantity,
-                'totalPrice' => $totalPrice,
-                'value' => $value,
+                'cart_id' => $cart_id,
+                'user_id' => $user_id,
                 'name' => $name,
-                'address' => $address,
+                'email' => $email,
+                'billing_address' => $billingAddress,
+                'shipping_address' => $shippingAddress,
                 'phone' => $phone
             ]);
+            $order->save();
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 0,
@@ -193,7 +201,7 @@ class CartController extends Controller
         }
 
         try {
-            $cart = Cart::where('user_id', $userID)->first();
+            $cart = Cart::where('user_id', $user_id)->first();
             if ($cart) {
                 CartItem::where('cart_id', $cart->id)->delete();
                 $cart->delete();
